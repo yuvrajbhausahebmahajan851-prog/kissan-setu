@@ -1,0 +1,546 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Kisan Setu</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@500;600&family=Public+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: one working console. Sticky control bar (village, crop, quantity), a one-sentence summary, then tabbed card grids.
+   Capacity is drawn as 20 "chambers" per hub, each worth 5% of the store. */
+:root{
+  --bg:#EDF2EF; --surface:#FFFFFF; --surface2:#E2EAE6; --fg:#10211C; --muted:#52655E; --line:#C9D6D0;
+  --accent:#0B6B5B; --accent-fg:#FFFFFF; --frost:#2B6A9E;
+  --good:#1D7440; --good-bg:#DCEFE2; --warn:#82540A; --warn-bg:#FAE9C4; --bad:#9F2A2A; --bad-bg:#F5D9D9;
+  --chamber-free:#D3DFD9; --chamber-used:#8CA39A; --chamber-mine:#0B6B5B;
+  --f-display:"Familjen Grotesk",system-ui,sans-serif; --f-body:"Public Sans",system-ui,sans-serif; --f-mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0C1513; --surface:#131F1C; --surface2:#1A2A26; --fg:#E4EEEA; --muted:#93A8A1; --line:#263A34; --accent:#45C6AA; --accent-fg:#06201A; --frost:#7DB4E3;
+  --good:#6FD08F; --good-bg:#16301F; --warn:#F0B84D; --warn-bg:#3A2C0E; --bad:#F29090; --bad-bg:#3A1717;
+  --chamber-free:#22332E; --chamber-used:#51675F; --chamber-mine:#45C6AA; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0C1513; --surface:#131F1C; --surface2:#1A2A26; --fg:#E4EEEA; --muted:#93A8A1; --line:#263A34;
+  --accent:#45C6AA; --accent-fg:#06201A; --frost:#7DB4E3;
+  --good:#6FD08F; --good-bg:#16301F; --warn:#F0B84D; --warn-bg:#3A2C0E; --bad:#F29090; --bad-bg:#3A1717;
+  --chamber-free:#22332E; --chamber-used:#51675F; --chamber-mine:#45C6AA; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 40px}
+.wrap{max-width:1080px;margin:0 auto}
+h1,h2,h3{font-family:var(--f-display);margin:0;text-wrap:balance;line-height:1.15}
+button,select,input{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--frost);outline-offset:2px}
+.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-weight:500}
+
+/* Header + controls */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px 16px;padding-top:20px}
+.brand{font-family:var(--f-display);font-weight:700;font-size:26px;letter-spacing:-.01em}
+.brand span{color:var(--accent)}
+.sample{font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:2px 8px}
+.controls{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;margin-top:14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;
+  background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.field{display:flex;flex-direction:column;gap:3px;min-width:0}
+.field label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.field select,.field input{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 10px;min-height:40px;width:100%}
+.summary{margin:18px 0 6px;font-size:17px;line-height:1.5;max-width:70ch}
+.summary b{font-weight:600}
+
+/* Tabs */
+.tabs{display:flex;gap:4px;margin-top:14px;border-bottom:1px solid var(--line);overflow-x:auto}
+.tab{background:none;border:0;border-bottom:3px solid transparent;padding:10px 14px;cursor:pointer;color:var(--muted);font-weight:600;white-space:nowrap}
+.tab[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--accent)}
+.tab .count{font-family:var(--f-mono);font-size:12px;background:var(--surface2);border-radius:10px;padding:1px 7px;margin-left:6px}
+.panel{padding-top:18px}
+.toolbar{display:flex;flex-wrap:wrap;gap:12px 18px;align-items:center;margin-bottom:14px;color:var(--muted);font-size:14px}
+.toolbar label{display:inline-flex;align-items:center;gap:6px}
+.toolbar select{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:5px 8px}
+
+/* Cards */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr));gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.card.dim{opacity:.72}
+.card h3{font-size:19px}
+.sub{color:var(--muted);font-size:13.5px}
+.row{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.pill{font-size:12px;font-weight:600;border-radius:999px;padding:2px 10px;white-space:nowrap}
+.pill.good{background:var(--good-bg);color:var(--good)}
+.pill.warn{background:var(--warn-bg);color:var(--warn)}
+.pill.bad{background:var(--bad-bg);color:var(--bad)}
+.pill.na{background:var(--surface2);color:var(--muted)}
+.chambers{display:grid;grid-template-columns:repeat(20,1fr);gap:2px;height:22px}
+.chambers i{border-radius:2px;background:var(--chamber-free)}
+.chambers i.u{background:var(--chamber-used)}
+.chambers i.m{background:var(--chamber-mine)}
+.cap-line{display:flex;justify-content:space-between;gap:8px;font-size:13px;color:var(--muted);flex-wrap:wrap}
+.cap-line strong{color:var(--fg);font-weight:600}
+.facts{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;margin:0;font-size:13.5px}
+.facts dt{color:var(--muted);font-size:11px;letter-spacing:.08em;text-transform:uppercase;font-weight:600}
+.facts dd{margin:0}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:12px;border:1px solid var(--line);border-radius:4px;padding:1px 7px;color:var(--muted)}
+.chip.on{border-color:var(--accent);color:var(--accent);font-weight:600}
+.btn{background:var(--accent);color:var(--accent-fg);border:0;border-radius:8px;padding:10px 14px;font-weight:600;cursor:pointer;min-height:42px}
+.btn:disabled{background:var(--surface2);color:var(--muted);cursor:not-allowed}
+.btn.ghost{background:none;color:var(--fg);border:1px solid var(--line)}
+.card .btn{margin-top:auto}
+.note{font-size:13px;border-radius:6px;padding:8px 10px;background:var(--warn-bg);color:var(--warn)}
+.note.ok{background:var(--good-bg);color:var(--good)}
+.note.bad{background:var(--bad-bg);color:var(--bad)}
+.route{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-weight:600}
+.route .arrow{color:var(--muted)}
+.load{height:10px;border-radius:5px;background:var(--chamber-free);overflow:hidden}
+.load i{display:block;height:100%;background:var(--chamber-mine)}
+.price{display:flex;gap:18px;flex-wrap:wrap}
+.price div{display:flex;flex-direction:column}
+.price small{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.price .num{font-size:20px}
+
+/* Advisor */
+.two{display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);gap:16px}
+@media(max-width:760px){.two{grid-template-columns:1fr}}
+.verdict{font-family:var(--f-display);font-size:24px;line-height:1.2}
+.bars{display:flex;flex-direction:column;gap:10px}
+.bar{display:grid;grid-template-columns:130px 1fr;gap:10px;align-items:center;font-size:13.5px}
+.bar .track{height:18px;background:var(--chamber-free);border-radius:3px;position:relative}
+.bar .fill{height:100%;border-radius:3px;display:flex;align-items:center;justify-content:flex-end;padding-right:6px;font-family:var(--f-mono);font-size:12px;color:var(--accent-fg);min-width:34px}
+.bar .fill.amb{background:var(--warn)}
+.bar .fill.cold{background:var(--accent)}
+.bar .fill.age{background:var(--bad)}
+.list{display:flex;flex-direction:column;gap:12px}
+.empty{border:1px dashed var(--line);border-radius:10px;padding:28px 18px;color:var(--muted);text-align:center}
+.fine{font-size:12.5px;color:var(--muted);margin-top:26px;max-width:75ch}
+
+/* Sheet */
+.scrim{position:fixed;inset:0;background:rgba(5,15,12,.55);z-index:20;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--surface);border:1px solid var(--line);width:min(100%,520px);max-height:92%;overflow:auto;border-radius:14px 14px 0 0;padding:20px 20px calc(20px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:14px}
+@media(min-width:640px){.scrim{align-items:center}.sheet{border-radius:14px}}
+.sheet .btns{display:flex;gap:10px;flex-wrap:wrap}
+.sheet .btns .btn{flex:1}
+.calc{display:grid;grid-template-columns:1fr auto;gap:6px 12px;font-size:14px;border-top:1px solid var(--line);padding-top:12px}
+.calc .t{font-weight:700;font-size:16px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:8px;z-index:30;font-weight:600;max-width:90%}
+@media(prefers-reduced-motion:no-preference){.card{transition:border-color .15s}.card:hover{border-color:var(--accent)}}
+.userbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.userbar .btn{min-height:32px;padding:4px 10px;font-size:13px}
+.who{font-weight:600;font-size:14px}
+#auth{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px 0}
+.authbox{width:min(100%,400px)}
+.qrbox{background:#fff;border-radius:10px;padding:12px;display:flex;justify-content:center;align-items:center;min-height:168px}
+.tl{list-style:none;margin:0;padding:0 0 0 14px;border-left:2px solid var(--line);display:flex;flex-direction:column;gap:6px;font-size:13px}
+.tl li{color:var(--muted)}.tl li b{color:var(--fg);font-weight:600}
+.card .btns{display:flex;gap:8px;flex-wrap:wrap}.card .btns .btn{flex:1;margin-top:0}
+</style>
+<div id="auth" hidden></div>
+<div class="wrap" hidden>
+  <div class="top">
+    <div class="brand">Kisan <span>Setu</span></div>
+    <div class="userbar"><span class="who" id="who"></span><button class="btn ghost" data-act="logout">Log out</button><span class="sample">Sample data</span></div>
+  </div>
+
+  <div class="controls">
+    <div class="field"><label for="c-village">My village</label><select id="c-village"></select></div>
+    <div class="field"><label for="c-crop">My crop</label><select id="c-crop"></select></div>
+    <div class="field"><label for="c-qty">Quantity (quintals)</label><input id="c-qty" type="number" min="1" max="500" value="40" inputmode="numeric"></div>
+  </div>
+
+  <p class="summary" id="summary"></p>
+
+  <div class="tabs" role="tablist" id="tabs">
+    <button class="tab" role="tab" data-tab="storage">Cold storage</button>
+    <button class="tab" role="tab" data-tab="trucks">Shared trucks</button>
+    <button class="tab" role="tab" data-tab="advisor">Store or sell</button>
+    <button class="tab" role="tab" data-tab="mine">My bookings<span class="count" id="mine-count">0</span></button>
+    <button class="tab" role="tab" data-tab="history">History</button>
+  </div>
+  <div class="panel" id="view"></div>
+
+  <p class="fine">Capacity, truck loads, rates and mandi prices are sample figures. In use, each hub operator and truck coordinator updates their own numbers. Accounts, bookings and payment records are saved only on this device, and the login is a demo without a server. UPI IDs are sample IDs: the hub operator confirms payment on receipt. 1 quintal = 100 kg; 10 quintals = 1 tonne. Distances are approximate road kilometres.</p>
+</div>
+
+<div class="scrim" id="scrim" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title"></div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+const VILLAGES={Junnar:[19.21,73.88],Narayangaon:[19.12,73.97],Shirur:[18.83,74.38],Sinnar:[19.85,74.0],Lasalgaon:[20.14,74.23],Baramati:[18.15,74.58],Phaltan:[17.99,74.43]};
+// amb = days it keeps at field temperature; cold / vent = days it keeps in that kind of store
+const CROPS={
+  onion:{name:'Onion',amb:30,vent:150,cold:200,price:1900,trend:18,perish:false},
+  tomato:{name:'Tomato',amb:5,cold:21,price:1600,trend:4,perish:true},
+  grapes:{name:'Grapes',amb:2,cold:28,price:5500,trend:10,perish:true},
+  pomegranate:{name:'Pomegranate',amb:14,cold:90,vent:30,price:9000,trend:12,perish:false},
+  potato:{name:'Potato',amb:20,cold:180,vent:45,price:1700,trend:9,perish:false},
+  chilli:{name:'Green chilli',amb:2,cold:12,price:4200,trend:3,perish:true}
+};
+const HUBS=[
+  {id:'h1',name:"Narayangaon Farmers' Cold Store",place:'Narayangaon, Pune',ll:[19.12,73.97],cap:2400,used:1710,temp:'2–4 °C',type:'cold',rate:4.2,crops:['tomato','grapes','chilli','pomegranate']},
+  {id:'h2',name:'Junnar Tomato Pack House',place:'Junnar, Pune',ll:[19.21,73.88],cap:800,used:790,temp:'10–12 °C',type:'cold',rate:3.5,crops:['tomato','chilli']},
+  {id:'h3',name:'Shirur FPO Cold Room',place:'Shirur, Pune',ll:[18.83,74.38],cap:1500,used:640,temp:'4–6 °C',type:'cold',rate:3.9,crops:['tomato','pomegranate','potato','chilli','grapes']},
+  {id:'h4',name:'Sinnar Grape Pre-cooling Hub',place:'Sinnar, Nashik',ll:[19.85,74.0],cap:1800,used:1100,temp:'0–2 °C',type:'cold',rate:5.8,crops:['grapes','pomegranate']},
+  {id:'h5',name:'Lasalgaon Onion Ventilated Store',place:'Lasalgaon, Nashik',ll:[20.14,74.23],cap:6000,used:4300,temp:'28 °C, forced air',type:'vent',rate:0.9,crops:['onion','potato','pomegranate']},
+  {id:'h6',name:'Baramati Multi-crop Cold Chain',place:'Baramati, Pune',ll:[18.15,74.58],cap:3000,used:880,temp:'5–8 °C',type:'cold',rate:3.2,crops:['pomegranate','potato','tomato','chilli','onion']},
+  {id:'h7',name:'Phaltan Pomegranate Cold Room',place:'Phaltan, Satara',ll:[17.99,74.43],cap:1000,used:970,temp:'5–8 °C',type:'cold',rate:3.0,crops:['pomegranate']}
+];
+const TRUCKS=[
+  {id:'t1',from:'Junnar & Narayangaon',to:'Vashi APMC, Navi Mumbai',day:1,time:'04:30',veh:'Eicher 14 ft reefer',reefer:true,cap:40,filled:26,cost:9600,hours:5,stops:['Junnar','Narayangaon']},
+  {id:'t2',from:'Lasalgaon',to:'Gultekdi Market Yard, Pune',day:2,time:'06:00',veh:'Eicher 17 ft open',reefer:false,cap:80,filled:71,cost:14400,hours:7,stops:['Lasalgaon','Sinnar']},
+  {id:'t3',from:'Baramati & Phaltan',to:'Gultekdi Market Yard, Pune',day:1,time:'03:00',veh:'Tata 407 open',reefer:false,cap:30,filled:9,cost:5200,hours:3.5,stops:['Baramati','Phaltan']},
+  {id:'t4',from:'Shirur',to:'Vashi APMC, Navi Mumbai',day:3,time:'02:00',veh:'Eicher 14 ft reefer',reefer:true,cap:40,filled:12,cost:10400,hours:6,stops:['Shirur','Narayangaon']},
+  {id:'t5',from:'Sinnar',to:'Vashi APMC, Navi Mumbai',day:2,time:'03:00',veh:'Eicher 17 ft open',reefer:false,cap:80,filled:38,cost:17600,hours:5.5,stops:['Sinnar','Lasalgaon']}
+];
+
+const UPI={h1:'narayangaon.coldstore@okaxis',h2:'junnar.packhouse@oksbi',h3:'shirurfpo.coldroom@okicici',h4:'sinnar.grapehub@okhdfcbank',h5:'lasalgaon.onionstore@oksbi',h6:'baramati.coldchain@okaxis',h7:'phaltan.pomcold@okicici',t1:'vashi.truck.pool@okaxis',t2:'gultekdi.truck.pool@oksbi',t3:'baramati.truck.pool@okicici',t4:'shirur.truck.pool@okaxis',t5:'sinnar.truck.pool@oksbi'};
+HUBS.forEach(h=>h.upi=UPI[h.id]);TRUCKS.forEach(t=>t.upi=UPI[t.id]);
+const DBK='kisan-setu-v2';
+let DB={users:{},session:null,updated:0},cloud=null;
+try{const r=JSON.parse(localStorage.getItem(DBK)||'null');if(r&&r.users)DB=r}catch(e){}
+// Accounts are kept in three places so they survive a reload: localStorage, IndexedDB, and (when the viewer is signed in to Claude) the artifact database.
+function idbOp(mode,fn){return new Promise(res=>{try{const r=indexedDB.open('kisan-setu-idb',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onerror=()=>res(null);r.onsuccess=()=>{try{const tx=r.result.transaction('kv',mode),q=fn(tx.objectStore('kv'));tx.oncomplete=()=>res(q&&q.result!==undefined?q.result:true);tx.onerror=()=>res(null)}catch(e){res(null)}}}catch(e){res(null)}})}
+function mergeDB(a,b){const o={users:{},updated:Math.max(a.updated||0,b.updated||0)};o.session=((a.updated||0)>=(b.updated||0)?a:b).session||null;[a,b].forEach(x=>Object.entries(x.users||{}).forEach(([m,u])=>{const c=o.users[m];if(!c||(u.updated||0)>(c.updated||0))o.users[m]=u}));return o}
+function saveDB(){DB.updated=Date.now();const j=JSON.stringify(DB);try{localStorage.setItem(DBK,j)}catch(e){}idbOp('readwrite',st=>st.put(j,'db'));if(cloud)cloud.set({json:j}).catch(()=>{})}
+const hashPin=(m,p)=>{let h=5381;const t=m+':'+p;for(let i=0;i<t.length;i++)h=((h<<5)+h+t.charCodeAt(i))|0;return String(h)};
+const S={village:'Shirur',crop:'onion',qty:40,tab:'storage',onlyFit:true,sort:'dist',age:2,days:21,bookings:[],sheet:null,user:null,authMode:'login'};
+function save(){if(!S.user||!DB.users[S.user])return;Object.assign(DB.users[S.user],{bookings:S.bookings,village:S.village,crop:S.crop,qty:S.qty,updated:Date.now()});saveDB()}
+
+const $=s=>document.querySelector(s);
+const n0=x=>Math.round(x).toLocaleString('en-IN');
+const inr=x=>'₹'+n0(x);
+const R=x=>x*Math.PI/180;
+function km(a,b){const dl=R(b[0]-a[0]),dg=R(b[1]-a[1]);const h=Math.sin(dl/2)**2+Math.cos(R(a[0]))*Math.cos(R(b[0]))*Math.sin(dg/2)**2;return Math.round(2*6371*Math.asin(Math.sqrt(h))*1.3)}
+const me=()=>VILLAGES[S.village];
+const crop=()=>CROPS[S.crop];
+function dateOf(off){const d=new Date();d.setDate(d.getDate()+off);return d}
+function fmtDay(off){return dateOf(off).toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'})}
+
+// derived state
+const isAct=b=>b.status==='pending'||b.status==='paid';
+const fmtT=t=>new Date(t).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+const logEv=(b,m)=>b.log.push({t:Date.now(),m});
+const mineStore=id=>S.bookings.filter(b=>isAct(b)&&b.kind==='store'&&b.ref===id).reduce((s,b)=>s+b.qty,0);
+const mineTruck=id=>S.bookings.filter(b=>isAct(b)&&b.kind==='truck'&&b.ref===id).reduce((s,b)=>s+b.qty,0);
+const hubFree=h=>h.cap-h.used-mineStore(h.id);
+const truckFilled=t=>t.filled+mineTruck(t.id);
+const hubDays=(h,c)=>c[h.type];
+const accepts=(h,key)=>h.crops.includes(key)&&CROPS[key][h.type]!=null;
+const hubDist=h=>km(me(),h.ll);
+function stopInfo(t){let best=null;t.stops.forEach(s=>{const d=km(me(),VILLAGES[s]);if(!best||d<best.d)best={s,d}});return best}
+
+function hubStatus(h){
+  const key=S.crop,c=crop();
+  if(!accepts(h,key))return{k:'na',t:'Does not take '+c.name.toLowerCase()};
+  const f=hubFree(h);
+  if(f<=0)return{k:'bad',t:'Full'};
+  if(f<S.qty)return{k:'bad',t:'Not enough space'};
+  if(f/h.cap<0.2)return{k:'warn',t:'Filling fast'};
+  return{k:'good',t:'Space available'};
+}
+function chambers(h){
+  const used=Math.round(h.used/h.cap*20),m=mineStore(h.id)>0?Math.max(1,Math.round(mineStore(h.id)/h.cap*20)):0;
+  let out='';for(let i=0;i<20;i++){out+='<i class="'+(i<used?'u':i<used+m?'m':'')+'"></i>'}
+  return out;
+}
+
+// ---------- summary ----------
+function renderSummary(){
+  const c=crop();
+  const fit=HUBS.filter(h=>accepts(h,S.crop)&&hubFree(h)>=S.qty&&hubDist(h)<=100).sort((a,b)=>hubDist(a)-hubDist(b));
+  const trucks=TRUCKS.filter(t=>t.cap-truckFilled(t)>=S.qty&&stopInfo(t).d<=60).sort((a,b)=>a.day-b.day);
+  let a=fit.length?`<b>${fit.length} cold-storage hub${fit.length>1?'s':''}</b> within 100 km can take <span class="num">${n0(S.qty)}</span> quintals of ${c.name.toLowerCase()}. Nearest is <b>${fit[0].name}</b>, <span class="num">${hubDist(fit[0])}</span> km from ${S.village}.`
+    :`No hub within 100 km of ${S.village} has room for <span class="num">${n0(S.qty)}</span> quintals of ${c.name.toLowerCase()}. Try a smaller lot or check the shared trucks.`;
+  let b=trucks.length?` The next shared truck with space leaves <b>${fmtDay(trucks[0].day)} at ${trucks[0].time}</b> for ${trucks[0].to.split(',')[0]}.`:' No shared truck near you has room for that quantity yet.';
+  $('#summary').innerHTML=a+b;
+}
+
+// ---------- storage tab ----------
+function renderStorage(){
+  let list=HUBS.slice();
+  if(S.onlyFit)list=list.filter(h=>accepts(h,S.crop));
+  list.sort((a,b)=>S.sort==='dist'?hubDist(a)-hubDist(b):S.sort==='price'?a.rate-b.rate:hubFree(b)-hubFree(a));
+  const c=crop();
+  let h=`<div class="toolbar">
+    <label><input type="checkbox" id="f-fit" ${S.onlyFit?'checked':''}> Only hubs that take ${c.name.toLowerCase()}</label>
+    <label>Sort by <select id="f-sort"><option value="dist" ${S.sort==='dist'?'selected':''}>Nearest</option><option value="price" ${S.sort==='price'?'selected':''}>Lowest rate</option><option value="free" ${S.sort==='free'?'selected':''}>Most free space</option></select></label>
+    <span class="sub" style="display:inline-flex;gap:10px;align-items:center"><span class="chambers" style="width:84px;height:12px;grid-template-columns:repeat(3,1fr)"><i class="u"></i><i class="m"></i><i></i></span> booked · yours · free</span>
+  </div><div class="grid">`;
+  list.forEach(hub=>{
+    const st=hubStatus(hub),ok=accepts(hub,S.crop),free=hubFree(hub),mine=mineStore(hub.id);
+    h+=`<article class="card ${ok?'':'dim'}">
+      <div class="row"><div><h3>${hub.name}</h3><div class="sub">${hub.place} · <span class="num">${hubDist(hub)}</span> km from ${S.village}</div></div><span class="pill ${st.k}">${st.t}</span></div>
+      <div><div class="chambers" aria-hidden="true">${chambers(hub)}</div>
+        <div class="cap-line" style="margin-top:6px"><span><strong class="num">${n0(Math.max(free,0))}</strong> q free of <span class="num">${n0(hub.cap)}</span> q</span>${mine?`<span>You hold <strong class="num">${n0(mine)}</strong> q</span>`:''}</div></div>
+      <dl class="facts">
+        <div><dt>${hub.type==='vent'?'Ventilated store':'Chamber'}</dt><dd class="num">${hub.temp}</dd></div>
+        <div><dt>Rate</dt><dd><span class="num">₹${hub.rate.toFixed(1)}</span> / q / day</dd></div>
+        ${ok?`<div style="grid-column:1/-1"><dt>${c.name} keeps here</dt><dd><span class="num">${hubDays(hub,c)}</span> days (<span class="num">${c.amb}</span> days in the open)</dd></div>`:''}
+      </dl>
+      <div class="chips">${hub.crops.map(k=>`<span class="chip ${k===S.crop?'on':''}">${CROPS[k].name}</span>`).join('')}</div>
+      <button class="btn" data-act="book-store" data-id="${hub.id}" ${ok&&free>0?'':'disabled'}>${ok?(free>0?'Book space':'No space'):'Not suitable'}</button>
+    </article>`;
+  });
+  if(!list.length)h+='<div class="empty" style="grid-column:1/-1">No hubs match. Untick the filter above to see every hub.</div>';
+  return h+'</div>';
+}
+
+// ---------- trucks tab ----------
+function renderTrucks(){
+  const c=crop();
+  const list=TRUCKS.slice().sort((a,b)=>stopInfo(a).d-stopInfo(b).d);
+  let h=`<div class="toolbar">Trucks are shared. The trip cost is split by quintals loaded, so the price per quintal falls as the truck fills. You pay the final split at departure.</div><div class="grid">`;
+  list.forEach(t=>{
+    const filled=truckFilled(t),left=t.cap-filled,pct=Math.min(100,filled/t.cap*100),si=stopInfo(t),mine=mineTruck(t.id);
+    const warm=c.perish&&!t.reefer&&t.hours>5;
+    const far=si.d>60;
+    h+=`<article class="card ${far?'dim':''}">
+      <div class="row"><div><div class="route"><span>${t.from}</span><span class="arrow">→</span><span>${t.to}</span></div>
+        <div class="sub">${fmtDay(t.day)} · departs <span class="num">${t.time}</span> · about <span class="num">${t.hours}</span> h trip</div></div>
+        <span class="pill ${left<=0?'bad':left<10?'warn':'good'}">${left<=0?'Full':left+' q left'}</span></div>
+      <div><div class="load" aria-hidden="true"><i style="width:${pct}%"></i></div>
+        <div class="cap-line" style="margin-top:6px"><span><strong class="num">${n0(filled)}</strong> of <span class="num">${t.cap}</span> q loaded</span>${mine?`<span>Yours <strong class="num">${mine}</strong> q</span>`:''}</div></div>
+      <div class="price"><div><small>At current load</small><span class="num">${inr(t.cost/filled)}/q</span></div><div><small>If it fills</small><span class="num">${inr(t.cost/t.cap)}/q</span></div></div>
+      <dl class="facts"><div><dt>Vehicle</dt><dd>${t.veh}</dd></div><div><dt>Nearest pickup</dt><dd>${si.s}, <span class="num">${si.d}</span> km</dd></div></dl>
+      ${warm?`<div class="note">${c.name} spoils fast. This truck is open-bodied and the trip is over 5 hours. Load only if you can keep it shaded.</div>`:''}
+      ${far?`<div class="note bad">Pickup is far from ${S.village}. Check for a closer truck.</div>`:''}
+      <button class="btn" data-act="book-truck" data-id="${t.id}" ${left>0?'':'disabled'}>${left>0?'Add my load':'Truck is full'}</button>
+    </article>`;
+  });
+  return h+'</div>';
+}
+
+// ---------- advisor tab ----------
+function renderAdvisor(){
+  return `<div class="two">
+    <div class="card">
+      <h3>Store or sell?</h3>
+      <p class="sub" style="margin:0">Uses the crop and quantity at the top of the page.</p>
+      <div class="field"><label for="a-age">Days since harvest</label><input id="a-age" type="number" min="0" max="60" value="${S.age}"></div>
+      <div class="field"><label for="a-days">Days I would store it</label><input id="a-days" type="number" min="1" max="240" value="${S.days}"></div>
+    </div>
+    <div class="card" id="adv-out"></div>
+  </div>`;
+}
+function updateAdvisor(){
+  const out=$('#adv-out');if(!out)return;
+  const c=crop(),left=c.amb-S.age;
+  const fit=HUBS.filter(h=>accepts(h,S.crop)&&hubFree(h)>=S.qty).sort((a,b)=>hubDist(a)-hubDist(b))[0];
+  let vk,vt,vs;
+  if(left<=0){vk='bad';vt='Sell today';vs=`${c.name} keeps about ${c.amb} days in the open and yours is ${S.age} days old. Sell at the nearest mandi or move it to a cold store today.`}
+  else if(left<=3){vk='warn';vt=`Decide within ${left} day${left>1?'s':''}`;vs=`Only ${left} day${left>1?'s':''} of open-air shelf life remain. Book cold space or a truck now, before price pressure forces a distress sale.`}
+  else{vk='good';vt='You have time';vs=`About ${left} days of open-air shelf life remain, enough to compare hubs and trucks.`}
+  const max=Math.max(c.amb,c.cold||0,c.vent||0);
+  const w=d=>Math.max(4,d/max*100)+'%';
+  let h=`<div class="note ${vk==='good'?'ok':vk==='bad'?'bad':''}" style="font-size:15px"><div class="verdict">${vt}</div><div style="margin-top:4px">${vs}</div></div>
+  <div class="bars" aria-label="Shelf life in days"><div class="bar"><span>Your lot's age</span><div class="track"><div class="fill age" style="width:${w(Math.min(S.age,max))}">${S.age}</div></div></div>
+  <div class="bar"><span>In the open</span><div class="track"><div class="fill amb" style="width:${w(c.amb)}">${c.amb} d</div></div></div>`;
+  if(c.cold)h+=`<div class="bar"><span>Cold store</span><div class="track"><div class="fill cold" style="width:${w(c.cold)}">${c.cold} d</div></div></div>`;
+  if(c.vent)h+=`<div class="bar"><span>Ventilated store</span><div class="track"><div class="fill cold" style="width:${w(c.vent)}">${c.vent} d</div></div></div>`;
+  h+='</div>';
+  if(fit){
+    const perQ=fit.rate*S.days,pct=perQ/c.price*100,total=perQ*S.qty,hd=hubDays(fit,c);
+    h+=`<div class="calc"><span>Nearest hub with room</span><span>${fit.name}, <span class="num">${hubDist(fit)}</span> km</span>
+      <span>Storage for ${S.days} days</span><span class="num">${inr(perQ)} / q</span>
+      <span>Lot total (${n0(S.qty)} q)</span><span class="num">${inr(total)}</span>
+      <span>Share of today's mandi price (${inr(c.price)}/q, sample)</span><span class="num">${pct.toFixed(1)}%</span></div>`;
+    if(S.days>hd)h+=`<div class="note bad">${c.name} keeps about ${hd} days at this hub. ${S.days} days is too long.</div>`;
+    else if(c.trend>=pct)h+=`<div class="note ok">Sample price trend for ${c.name.toLowerCase()} over three weeks is +${c.trend}%, above the ${pct.toFixed(1)}% storage cost. Prices can move either way, so treat this as a guide.</div>`;
+    else h+=`<div class="note">Sample trend is +${c.trend}% over three weeks, which does not cover a ${pct.toFixed(1)}% storage cost. Selling soon may leave you better off.</div>`;
+    h+=`<button class="btn" data-act="book-store" data-id="${fit.id}">Book space at ${fit.name}</button>`;
+  }else h+=`<div class="note bad">No hub currently has room for ${n0(S.qty)} quintals of ${c.name.toLowerCase()}. Consider splitting the lot or selling a part.</div>`;
+  out.innerHTML=h;
+}
+
+// ---------- my bookings tab ----------
+const bAmt=b=>{if(b.kind==='truck'&&b.status==='pending'){const t=TRUCKS.find(x=>x.id===b.ref);return t.cost/truckFilled(t)*b.qty}return b.amt};
+const payee=b=>b.kind==='store'?HUBS.find(x=>x.id===b.ref):TRUCKS.find(x=>x.id===b.ref);
+function bookingCard(b){
+  const st=b.kind==='store',o=payee(b),amt=bAmt(b);
+  const m={pending:['warn','Payment due'],paid:['good','Paid · awaiting hub confirmation'],completed:['good','Completed'],cancelled:['na','Cancelled']}[b.status];
+  const title=st?'Cold storage · '+o.name:'Shared truck · '+o.to.split(',')[0];
+  const sub=st?`${CROPS[b.crop].name}, <span class="num">${n0(b.qty)}</span> q for <span class="num">${b.days}</span> days · ${o.place}`:`${CROPS[b.crop].name}, <span class="num">${n0(b.qty)}</span> q · ${fmtDay(o.day)} at <span class="num">${o.time}</span> · pickup ${b.stop}`;
+  let btn='';
+  if(b.status==='pending')btn=`<button class="btn" data-act="pay" data-id="${b.id}">Pay ${inr(amt)} by UPI</button><button class="btn ghost" data-act="cancel" data-id="${b.id}">Cancel</button>`;
+  else if(b.status==='paid')btn=`<button class="btn" data-act="complete" data-id="${b.id}">${st?'Mark produce collected':'Mark delivered'}</button><button class="btn ghost" data-act="cancel" data-id="${b.id}">Cancel</button>`;
+  return `<article class="card ${isAct(b)?'':'dim'}"><div class="row"><div><h3>${title}</h3><div class="sub">${sub}</div></div><span class="pill ${m[0]}">${m[1]}</span></div>
+  <div class="cap-line"><span>${b.status==='pending'?'Amount due':'Amount'} <strong class="num">${inr(amt)}</strong>${st?'':b.status==='pending'?' (final split at departure)':''}</span><span>Booking <span class="num">${b.id.slice(-6)}</span>${b.utr?' · UTR <span class="num">'+b.utr+'</span>':''}</span></div>
+  <ul class="tl">${b.log.map(e=>`<li><b>${e.m}</b> · ${fmtT(e.t)}</li>`).join('')}</ul>${btn?`<div class="btns">${btn}</div>`:''}</article>`;
+}
+function renderMine(){
+  const l=S.bookings.filter(isAct).reverse();
+  if(!l.length)return `<div class="empty">No active bookings. Reserve cold storage or a seat on a shared truck, pay by UPI, and track it here. Finished and cancelled bookings move to History.</div>`;
+  return '<div class="list">'+l.map(bookingCard).join('')+'</div>';
+}
+function renderHistory(){
+  const l=S.bookings.filter(b=>!isAct(b)).reverse();
+  const paid=S.bookings.filter(b=>b.status==='completed').reduce((a,b)=>a+b.amt,0);
+  if(!l.length)return `<div class="empty">No past bookings yet. Completed and cancelled bookings will be listed here.</div>`;
+  return `<div class="toolbar">${l.length} past booking${l.length>1?'s':''} · paid on completed bookings <strong class="num" style="color:var(--fg)">${inr(paid)}</strong></div><div class="list">`+l.map(bookingCard).join('')+'</div>';
+}
+
+// ---------- login ----------
+function drawAuth(err){
+  const reg=S.authMode==='register';
+  $('#auth').innerHTML=`<div class="card authbox"><div class="brand">Kisan <span>Setu</span></div>
+  <p class="sub" style="margin:0">${reg?'Create a farmer account to book storage and trucks.':'Farmer login. Your account and bookings are saved on this device under your mobile number. Use the same browser to log in again.'}</p>
+  ${reg?'<div class="field"><label for="a-name">Your name</label><input id="a-name" autocomplete="name"></div>':''}
+  <div class="field"><label for="a-mob">Mobile number</label><input id="a-mob" type="tel" inputmode="numeric" maxlength="10" placeholder="10 digits"></div>
+  ${reg?`<div class="field"><label for="a-vil">Village</label><select id="a-vil">${Object.keys(VILLAGES).map(v=>`<option>${v}</option>`).join('')}</select></div>`:''}
+  <div class="field"><label for="a-pin">4-digit PIN</label><input id="a-pin" type="password" inputmode="numeric" maxlength="4"></div>
+  <div class="note bad" id="a-err" ${err?'':'hidden'}>${err||''}</div>
+  <button class="btn" data-act="auth-go">${reg?'Create account':'Log in'}</button>
+  <button class="btn ghost" data-act="auth-switch">${reg?'I already have an account':'New farmer? Create account'}</button></div>`;
+  $('#auth').hidden=false;$('.wrap').hidden=true;
+}
+function startSession(m){
+  const u=DB.users[m];S.user=m;DB.session=m;saveDB();
+  S.bookings=u.bookings||[];S.village=u.village||S.village;S.crop=u.crop||S.crop;S.qty=u.qty||S.qty;
+  $('#c-village').value=S.village;$('#c-crop').value=S.crop;$('#c-qty').value=S.qty;
+  $('#who').textContent=u.name;$('#auth').hidden=true;$('.wrap').hidden=false;S.tab=TABS.includes(location.hash.slice(1))?location.hash.slice(1):'storage';render();
+}
+function authGo(){
+  const m=($('#a-mob').value||'').trim(),pin=$('#a-pin').value||'',reg=S.authMode==='register';
+  if(!/^[6-9]\d{9}$/.test(m))return drawAuth('Enter a valid 10-digit mobile number.');
+  if(!/^\d{4}$/.test(pin))return drawAuth('PIN must be 4 digits.');
+  if(reg){
+    const name=($('#a-name').value||'').trim();
+    if(name.length<2)return drawAuth('Enter your name.');
+    if(DB.users[m])return drawAuth('This number is already registered. Log in instead.');
+    DB.users[m]={name,h:hashPin(m,pin),village:$('#a-vil').value,crop:'onion',qty:40,bookings:[],updated:Date.now()};
+  }else if(!DB.users[m]||DB.users[m].h!==hashPin(m,pin))return drawAuth('Mobile number or PIN is wrong.');
+  startSession(m);
+}
+
+// ---------- sheet ----------
+function openSheet(kind,id){S.sheet={kind,id};drawSheet();$('#scrim').hidden=false;const f=$('#sheet input');if(f)f.focus()}
+function closeSheet(){S.sheet=null;$('#scrim').hidden=true}
+function drawSheet(){
+  const {kind,id}=S.sheet,c=crop(),sh=$('#sheet');
+  if(kind==='pay'){
+    const b=S.bookings.find(x=>x.id===id),o=payee(b),amt=bAmt(b),nm=b.kind==='store'?o.name:'Kisan Setu truck pool';
+    const link=`upi://pay?pa=${encodeURIComponent(o.upi)}&pn=${encodeURIComponent(nm)}&am=${amt.toFixed(2)}&cu=INR&tn=${encodeURIComponent('Kisan Setu '+b.id.slice(-6))}`;
+    sh.innerHTML=`<div><h2 id="sheet-title" style="font-size:22px">Pay ${nm}</h2><div class="sub">Scan with any UPI app, or pay to the UPI ID below.</div></div>
+      <div class="qrbox"><div id="qr"></div></div>
+      <div class="calc"><span class="t">Amount</span><span class="t num">${inr(amt)}</span><span>UPI ID</span><span class="num" style="word-break:break-all">${o.upi}</span></div>
+      <div class="btns"><button class="btn ghost" data-act="copy-upi" data-v="${o.upi}">Copy UPI ID</button><a class="btn ghost" style="display:flex;align-items:center;justify-content:center;text-decoration:none" href="${link}">Open UPI app</a></div>
+      <div class="field"><label for="p-utr">After paying, enter the 12-digit UPI transaction ID</label><input id="p-utr" inputmode="numeric" maxlength="12"></div>
+      <div class="note bad" id="p-err" hidden></div>
+      <div class="btns"><button class="btn ghost" data-act="close">Pay later</button><button class="btn" data-act="confirm-pay" data-id="${b.id}">I have paid</button></div>`;
+    if(window.QRCode){try{new QRCode($('#qr'),{text:link,width:168,height:168,correctLevel:QRCode.CorrectLevel.M})}catch(e){}}
+    else $('#qr').innerHTML='<span style="color:#333">QR could not load. Use the UPI ID.</span>';
+  }else if(kind==='store'){
+    const h=HUBS.find(x=>x.id===id);
+    const dflt=Math.min(S.days,hubDays(h,c)||S.days);
+    sh.innerHTML=`<div><h2 id="sheet-title" style="font-size:22px">Book space at ${h.name}</h2><div class="sub">${h.place} · ${h.temp} · ₹${h.rate.toFixed(1)} per quintal per day</div></div>
+      <div class="field"><label for="s-qty">Quantity (quintals)</label><input id="s-qty" type="number" min="1" value="${S.qty}"></div>
+      <div class="field"><label for="s-days">Days in storage</label><input id="s-days" type="number" min="1" max="365" value="${dflt}"></div>
+      <div id="s-calc"></div>
+      <div class="btns"><button class="btn ghost" data-act="close">Close</button><button class="btn" id="s-ok" data-act="confirm-store" data-id="${h.id}">Confirm booking</button></div>`;
+    updStore();
+  }else{
+    const t=TRUCKS.find(x=>x.id===id),si=stopInfo(t);
+    sh.innerHTML=`<div><h2 id="sheet-title" style="font-size:22px">Add your load to the ${t.to.split(',')[0]} truck</h2><div class="sub">${fmtDay(t.day)} · departs ${t.time} · ${t.veh}</div></div>
+      <div class="field"><label for="s-qty">Quantity (quintals)</label><input id="s-qty" type="number" min="1" value="${Math.min(S.qty,t.cap-truckFilled(t))}"></div>
+      <div class="field"><label for="s-stop">Pickup point</label><select id="s-stop">${t.stops.map(s=>`<option value="${s}" ${s===si.s?'selected':''}>${s} (${km(me(),VILLAGES[s])} km from ${S.village})</option>`).join('')}</select></div>
+      <div id="s-calc"></div>
+      <div class="btns"><button class="btn ghost" data-act="close">Close</button><button class="btn" id="s-ok" data-act="confirm-truck" data-id="${t.id}">Hold my seat</button></div>`;
+    updTruck();
+  }
+}
+function updStore(){
+  const h=HUBS.find(x=>x.id===S.sheet.id),c=crop();
+  const q=+$('#s-qty').value||0,d=+$('#s-days').value||0,free=hubFree(h),hd=hubDays(h,c),cost=q*d*h.rate;
+  let w='',bad=q<=0||d<=0||q>free||d>hd;
+  if(q>free)w=`<div class="note bad">Only ${n0(free)} q free here. Reduce the quantity.</div>`;
+  else if(d>hd)w=`<div class="note bad">${c.name} keeps about ${hd} days in this store. Choose ${hd} days or fewer.</div>`;
+  $('#s-calc').innerHTML=`<div class="calc"><span>Crop</span><span>${c.name}</span><span>Charge per quintal</span><span class="num">${inr(h.rate*d)}</span><span class="t">Estimated total</span><span class="t num">${inr(cost)}</span><span>Space left after booking</span><span class="num">${n0(free-q)} q</span></div>${w}`;
+  $('#s-ok').disabled=bad;
+}
+function updTruck(){
+  const t=TRUCKS.find(x=>x.id===S.sheet.id);
+  const q=+$('#s-qty').value||0,left=t.cap-truckFilled(t),f=truckFilled(t)+q;
+  let w='';const bad=q<=0||q>left;
+  if(q>left)w=`<div class="note bad">Only ${left} q left on this truck.</div>`;
+  $('#s-calc').innerHTML=`<div class="calc"><span>Split with this load</span><span class="num">${inr(t.cost/f)} / q</span><span class="t">Estimated total</span><span class="t num">${inr(t.cost/f*q)}</span><span>Lowest possible, if the truck fills</span><span class="num">${inr(t.cost/t.cap*q)}</span></div>${w}`;
+  $('#s-ok').disabled=bad;
+}
+
+// ---------- shell ----------
+function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,2600)}
+const TABS=['storage','trucks','advisor','mine','history'];
+function render(){
+  renderSummary();
+  document.querySelectorAll('.tab').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===S.tab));
+  $('#mine-count').textContent=S.bookings.filter(isAct).length;
+  $('#view').innerHTML=S.tab==='storage'?renderStorage():S.tab==='trucks'?renderTrucks():S.tab==='advisor'?renderAdvisor():S.tab==='history'?renderHistory():renderMine();
+  if(S.tab==='advisor')updateAdvisor();
+}
+function setTab(t){if(!TABS.includes(t))t='storage';S.tab=t;if(location.hash.slice(1)!==t)location.hash=t;render()}
+
+document.addEventListener('click',e=>{
+  const tab=e.target.closest('.tab');if(tab){setTab(tab.dataset.tab);return}
+  if(e.target.id==='scrim'){closeSheet();return}
+  const a=e.target.closest('[data-act]');if(!a)return;
+  const act=a.dataset.act,id=a.dataset.id;
+  if(act==='book-store')openSheet('store',id);
+  else if(act==='book-truck')openSheet('truck',id);
+  else if(act==='close')closeSheet();
+  else if(act==='confirm-store'){
+    const h=HUBS.find(x=>x.id===id),q=+$('#s-qty').value,d=+$('#s-days').value;
+    const b={id:'b'+Date.now(),kind:'store',ref:id,crop:S.crop,qty:q,days:d,amt:q*d*h.rate,status:'pending',log:[]};logEv(b,'Space reserved');
+    S.bookings.push(b);save();render();toast('Reserved '+n0(q)+' q. Complete payment to confirm.');openSheet('pay',b.id);
+  }else if(act==='confirm-truck'){
+    const t=TRUCKS.find(x=>x.id===id),q=+$('#s-qty').value;
+    const b={id:'b'+Date.now(),kind:'truck',ref:id,crop:S.crop,qty:q,stop:$('#s-stop').value,amt:t.cost/(truckFilled(t)+q)*q,status:'pending',log:[]};logEv(b,'Seat held');
+    S.bookings.push(b);save();render();toast('Seat held for '+n0(q)+' q on the '+t.to.split(',')[0]+' truck');openSheet('pay',b.id);
+  }else if(act==='pay')openSheet('pay',id);
+  else if(act==='copy-upi'){try{navigator.clipboard.writeText(a.dataset.v).then(()=>toast('UPI ID copied'),()=>toast(a.dataset.v))}catch(x){toast(a.dataset.v)}}
+  else if(act==='confirm-pay'){
+    const b=S.bookings.find(x=>x.id===id),u=($('#p-utr').value||'').trim();
+    if(!/^\d{12}$/.test(u)){const e=$('#p-err');e.textContent='Enter the 12-digit transaction ID shown in your UPI app.';e.hidden=false;return}
+    b.amt=bAmt(b);b.utr=u;b.status='paid';logEv(b,'Payment of '+inr(b.amt)+' submitted');save();closeSheet();render();toast('Payment recorded. The hub will confirm on receipt.');
+  }else if(act==='complete'){
+    const b=S.bookings.find(x=>x.id===id);b.status='completed';logEv(b,b.kind==='store'?'Produce collected':'Delivered');save();render();toast('Moved to History');
+  }else if(act==='cancel'){
+    const b=S.bookings.find(x=>x.id===id);if(b.kind==='truck'&&b.status==='pending')b.amt=bAmt(b);
+    const paid=b.status==='paid';b.status='cancelled';logEv(b,paid?'Cancelled. Ask the operator for a refund of your UPI payment':'Cancelled');save();render();toast('Booking cancelled');
+  }else if(act==='logout'){save();DB.session=null;saveDB();S.user=null;S.bookings=[];S.authMode='login';drawAuth()}
+  else if(act==='auth-go')authGo();
+  else if(act==='auth-switch'){S.authMode=S.authMode==='login'?'register':'login';drawAuth()}
+});
+document.addEventListener('input',e=>{
+  const i=e.target.id;
+  if(i==='s-qty'||i==='s-days'){S.sheet.kind==='store'?updStore():updTruck()}
+  else if(i==='a-age'){S.age=Math.max(0,+e.target.value||0);updateAdvisor()}
+  else if(i==='a-days'){S.days=Math.max(1,+e.target.value||1);updateAdvisor()}
+  else if(i==='c-qty'){S.qty=Math.max(1,+e.target.value||1);save();render()}
+});
+document.addEventListener('change',e=>{
+  const i=e.target.id;
+  if(i==='c-village'){S.village=e.target.value;save();render()}
+  else if(i==='c-crop'){S.crop=e.target.value;save();render()}
+  else if(i==='f-fit'){S.onlyFit=e.target.checked;render()}
+  else if(i==='f-sort'){S.sort=e.target.value;render()}
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&S.sheet)closeSheet();if(e.key==='Enter'&&e.target.closest('#auth')&&e.target.tagName==='INPUT')authGo()});
+window.addEventListener('hashchange',()=>{const t=location.hash.slice(1);if(TABS.includes(t)&&t!==S.tab){S.tab=t;render()}});
+
+$('#c-village').innerHTML=Object.keys(VILLAGES).map(v=>`<option ${v===S.village?'selected':''}>${v}</option>`).join('');
+$('#c-crop').innerHTML=Object.entries(CROPS).map(([k,c])=>`<option value="${k}" ${k===S.crop?'selected':''}>${c.name}</option>`).join('');
+$('#c-qty').value=S.qty;
+(async()=>{
+  const i=await idbOp('readonly',st=>st.get('db'));if(typeof i==='string'){try{DB=mergeDB(DB,JSON.parse(i))}catch(e){}}
+  if(DB.session&&DB.users[DB.session])startSession(DB.session);else drawAuth();
+  try{
+    if(!(window.claude&&claude.use))return;
+    const [db,user]=await Promise.all([claude.use('db'),claude.use('user')]);if(!db||!user)return;
+    const id=await user.id();if(!id)return;
+    cloud=db.collection('data/users/'+id).doc('kisansetu');
+    const sn=await cloud.get();
+    if(sn.exists){try{DB=mergeDB(DB,JSON.parse(sn.data().json));
+      if(S.user&&DB.users[S.user]){S.bookings=DB.users[S.user].bookings||[];render()}
+      else if(!S.user&&DB.session&&DB.users[DB.session])startSession(DB.session)}catch(e){}}
+    saveDB();
+  }catch(e){}
+})();
+</script>
+
+</body></html>
